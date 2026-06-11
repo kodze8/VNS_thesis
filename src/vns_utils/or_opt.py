@@ -1,6 +1,5 @@
 import random
-
-from src.vns_utils.helpers import tour_cost
+from vns_utils.helpers import tour_cost
 
 
 def small_shake(tour, dist, chain_length=1):

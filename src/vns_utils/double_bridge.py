@@ -1,5 +1,5 @@
 import random
-from src.vns_utils.helpers import tour_cost
+from vns_utils.helpers import tour_cost
 
 
 def _double_bridge_once(tour):
