@@ -1,19 +1,3 @@
-"""
-app.py — Live VNS Explorer backend
-----------------------------------
-Place this file in the `src/` directory (next to vns.py, logger.py,
-data_parser.py) so its imports match the existing project.
-
-Run:
-    cd src
-    python app.py
-then open http://127.0.0.1:5000 in a browser.
-
-The backend runs VNS live for a chosen (instance, k_max, max_no_improve,
-init_method, seed) drawn from a fixed allowed grid, then returns the full
-per-step log plus the city coordinates so the frontend can animate the tour.
-"""
-
 import ast
 import os
 from dataclasses import asdict

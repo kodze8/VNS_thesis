@@ -1,4 +1,4 @@
-from src.vns_utils.helpers import tour_cost
+from vns_utils.helpers import tour_cost
 
 def local_search(tour, dist):
     """
