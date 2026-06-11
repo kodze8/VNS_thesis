@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>VNS Explorer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<style>
+  :root{
+    --bg:#ffffff;
+    --ink:#0a0a0a;
+    --muted:#6b7280;
+    --faint:#9aa3b2;
+    --line:#e6e8ec;
+    --line-2:#d3d7de;
+    --surface:#ffffff;
+    --surface-2:#f6f7f9;
+    /* five distinct, tasteful neighborhood colors (k1..k5) */
+    --k1:#1f6feb;   /* blue   */
+    --k2:#12a594;   /* teal   */
+    --k3:#7c4dff;   /* violet */
+    --k4:#e8590c;   /* orange */
+    --k5:#d6336c;   /* magenta */
+    --best:#0a0a0a; /* best-cost line: black */
+    --curr:#9aa3b2; /* current-cost line: gray */
+    --optimal:#16a34a; /* optimal reference: green */
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:"Helvetica Neue",Helvetica,Arial,-apple-system,BlinkMacSystemFont,sans-serif;
+       color:var(--ink);background:var(--bg);-webkit-font-smoothing:antialiased;}
+  header{padding:40px 32px 26px;border-bottom:2px solid var(--ink);}
+  header h1{margin:0;font-size:40px;font-weight:800;letter-spacing:-.03em;line-height:1.02;
+            text-transform:none;}
+  header p{margin:12px 0 0;font-size:14px;color:var(--muted);max-width:680px;line-height:1.5;}
+  .wrap{max-width:1180px;margin:0 auto;padding:26px 32px 80px;}
+
+  .controls{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;
+            background:var(--surface);border:1px solid var(--line);border-radius:4px;
+            padding:18px;margin-bottom:8px;}
+  .ctrl{display:flex;flex-direction:column;gap:5px;}
+  .ctrl label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;font-weight:600;}
+  .ctrl select{padding:8px 10px;border:1px solid var(--line-2);border-radius:3px;
+               font-size:14px;background:#fff;color:var(--ink);min-width:122px;}
+  .ctrl select:focus{outline:none;border-color:var(--ink);}
+  .runbtn{padding:10px 28px;border:none;border-radius:3px;background:var(--ink);
+          color:#fff;font-size:14px;font-weight:600;cursor:pointer;letter-spacing:.02em;}
+  .runbtn:hover{background:#2a2a2a;}
+  .runbtn:disabled{opacity:.4;cursor:default;}
+  .warn{font-size:12px;color:var(--k4);margin:8px 2px 0;min-height:16px;}
+
+  .band-title{font-size:11px;font-weight:700;text-transform:uppercase;
+              letter-spacing:.14em;color:var(--ink);margin:34px 2px 12px;
+              display:flex;align-items:center;gap:12px;}
+  .band-title::after{content:"";flex:1;height:1px;background:var(--line-2);}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+  @media (max-width:820px){.grid2{grid-template-columns:1fr;}}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:16px;}
+  .card h3{margin:0 0 10px;font-size:12px;font-weight:700;color:var(--ink);
+           text-transform:uppercase;letter-spacing:.06em;}
+  svg{display:block;width:100%;height:auto;}
+
+  .sliderbar{display:flex;align-items:center;gap:12px;margin-top:12px;}
+  .sliderbar input[type=range]{flex:1;accent-color:var(--ink);}
+  .sliderbar .play{padding:6px 16px;border:1px solid var(--line-2);border-radius:3px;
+                   background:#fff;cursor:pointer;font-size:13px;color:var(--ink);font-weight:600;}
+  .sliderbar .play:hover{border-color:var(--ink);}
+  .stepinfo{font-size:12px;color:var(--muted);min-width:180px;text-align:right;
+            font-variant-numeric:tabular-nums;}
+
+  details.final{margin-top:34px;background:var(--surface);border:1px solid var(--line);
+                border-radius:4px;padding:4px 18px;}
+  details.final summary{cursor:pointer;font-size:12px;font-weight:700;padding:14px 0;color:var(--ink);
+                        text-transform:uppercase;letter-spacing:.06em;}
+  .statgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;padding:8px 0 18px;}
+  @media (max-width:820px){.statgrid{grid-template-columns:repeat(2,1fr);}}
+  .stat{background:var(--surface-2);border-radius:3px;padding:14px;}
+  .stat .v{font-size:24px;font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums;letter-spacing:-.02em;}
+  .stat .l{font-size:11px;color:var(--muted);margin-top:3px;text-transform:uppercase;letter-spacing:.04em;}
+  table.nb{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px;}
+  table.nb th,table.nb td{text-align:left;padding:8px;border-bottom:1px solid var(--line);}
+  table.nb th{color:var(--muted);font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.08em;}
+  table.nb td{color:var(--ink);font-variant-numeric:tabular-nums;}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin-top:10px;}
+  .legend span{display:inline-flex;align-items:center;gap:6px;}
+  .swatch{width:11px;height:11px;border-radius:2px;display:inline-block;}
+  .empty{color:var(--muted);font-size:13px;padding:40px 0;text-align:center;}
+  .loading{color:var(--ink);font-size:13px;}
+  svg .domain{stroke:#c8ccd3;}
+  svg .tick line{stroke:#eceef1;}
+  svg .tick text{fill:#6b7280;font-size:10px;}
+  .axis-label{fill:#6b7280;font-size:11px;font-weight:600;}
+</style>
+</head>
+<body>
+<header>
+  <h1>Variable Neighbourhood Search</h1>
+  <p>An explainable visualisation of the search</p>
+</header>
+
+<div class="wrap">
+
+  <!-- CONTROLS -->
+  <div class="controls" id="controls">
+    <div class="ctrl"><label>Instance</label><select id="sel-instance"></select></div>
+    <div class="ctrl"><label>k_max</label><select id="sel-kmax"></select></div>
+    <div class="ctrl"><label>max_no_improve</label><select id="sel-noimprove"></select></div>
+    <div class="ctrl"><label>init method</label><select id="sel-init"></select></div>
+    <div class="ctrl"><label>seed</label><select id="sel-seed"></select></div>
+    <div class="ctrl"><label>time / iter cap</label><select id="sel-limits" disabled></select></div>
+    <button class="runbtn" id="run">Run</button>
+  </div>
+  <div class="warn" id="warn"></div>
+
+  <!-- MAIN ROW: tour + trajectory -->
+  <div class="grid2">
+    <div class="card">
+      <h3>Tour</h3>
+      <svg id="tour" viewBox="0 0 400 340"></svg>
+      <div class="sliderbar">
+        <button class="play" id="play">▶ Play</button>
+        <input type="range" id="slider" min="0" max="0" value="0" disabled/>
+        <div class="stepinfo" id="stepinfo">no run yet</div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Cost trajectory</h3>
+      <svg id="traj" viewBox="0 0 400 340"></svg>
+      <div class="legend" id="traj-legend"></div>
+    </div>
+  </div>
+
+  <!-- BAND: neighbourhood statistics -->
+  <div class="band-title">Neighborhood statistics</div>
+  <div class="grid2">
+    <div class="card"><h3>Times used per neighborhood</h3><svg id="usage" viewBox="0 0 400 290"></svg></div>
+    <div class="card"><h3>Contribution rate per neighborhood (%)</h3><svg id="contrib" viewBox="0 0 400 290"></svg></div>
+  </div>
+
+  <!-- BAND: shaking dynamics -->
+  <div class="band-title">Shaking dynamics</div>
+  <div class="grid2">
+    <div class="card"><h3>Mean shake delta vs LS recovery</h3><svg id="shake" viewBox="0 0 400 290"></svg></div>
+    <div class="card"><h3>Improvements over iterations</h3><svg id="improve" viewBox="0 0 400 290"></svg></div>
+  </div>
+
+  <!-- FINAL STATS -->
+  <details class="final" id="finalbox">
+    <summary>Final statistics</summary>
+    <div id="finalcontent"><div class="empty">Run a configuration to see final statistics.</div></div>
+  </details>
+
+</div>
+
+<script>
+const NB_ORDER = ["or_opt_1","or_opt_2","or_opt_3","double_bridge","double_double_bridge"];
+const NB_SHORT = {or_opt_1:"N1",or_opt_2:"N2",or_opt_3:"N3",double_bridge:"N4",double_double_bridge:"N5"};
+// five distinct, tasteful neighborhood colors
+const K_COLOR = {1:"#1f6feb",2:"#12a594",3:"#7c4dff",4:"#e8590c",5:"#d6336c"};
+const BEST="#0a0a0a", CURR="#9aa3b2", OPTIMAL="#16a34a", INK="#0a0a0a";
+// aliases used by existing draw code
+const RED=BEST, BLUE=CURR;
+
+let RUN = null;     // last run payload
+let timer = null;
+
+// ---------- setup dropdowns ----------
+async function init(){
+  const opt = await (await fetch("/api/options")).json();
+  window._OPT = opt;
+  fill("sel-instance", opt.instances);
+  fill("sel-kmax", opt.k_max);
+  fill("sel-noimprove", opt.max_no_improve);
+  fill("sel-init", opt.init_method);
+  fill("sel-seed", opt.seed);
+  updateLimits();
+  document.getElementById("sel-instance").addEventListener("change", updateLimits);
+  document.getElementById("run").addEventListener("click", doRun);
+  document.getElementById("slider").addEventListener("input", e=>showStep(+e.target.value));
+  document.getElementById("play").addEventListener("click", togglePlay);
+  // draw the empty instance map
+  loadInstanceMap(opt.instances[0]);
+  document.getElementById("sel-instance").addEventListener("change", e=>loadInstanceMap(e.target.value));
+}
+function fill(id, arr){
+  const s=document.getElementById(id); s.innerHTML="";
+  arr.forEach(v=>{const o=document.createElement("option");o.value=v;o.textContent=v;s.appendChild(o);});
+}
+function updateLimits(){
+  const inst=document.getElementById("sel-instance").value;
+  const t=window._OPT.time_limits[inst], m=window._OPT.max_iterations[inst];
+  fill("sel-limits", [`${t}s / ${m} iters`]);
+  const warn=document.getElementById("warn");
+  warn.textContent = window._OPT.slow_instances.includes(inst)
+    ? "Larger instance — a live run may take a while." : "";
+}
+
+// ---------- load instance coords (empty map) ----------
+async function loadInstanceMap(name){
+  const data = await (await fetch(`/api/instance/${name}`)).json();
+  drawTour(data.coordinates, null);
+  document.getElementById("stepinfo").textContent = `${name}: ${data.dimension} cities`;
+}
+
+// ---------- run ----------
+async function doRun(){
+  const btn=document.getElementById("run");
+  btn.disabled=true; btn.textContent="Running…";
+  document.getElementById("warn").innerHTML='<span class="loading">Running VNS live…</span>';
+  const body={
+    instance:document.getElementById("sel-instance").value,
+    k_max:+document.getElementById("sel-kmax").value,
+    max_no_improve:+document.getElementById("sel-noimprove").value,
+    init_method:document.getElementById("sel-init").value,
+    seed:+document.getElementById("sel-seed").value,
+  };
+  try{
+    const res=await fetch("/api/run",{method:"POST",headers:{"Content-Type":"application/json"},
+                                      body:JSON.stringify(body)});
+    const data=await res.json();
+    if(data.error){document.getElementById("warn").textContent="Error: "+data.error;return;}
+    RUN=data;
+    buildTrajLegend();
+    setupSlider(); showStep(0);
+    drawAllStats();
+    drawFinal();
+    document.getElementById("warn").textContent="";
+  }catch(err){
+    document.getElementById("warn").textContent="Request failed: "+err;
+  }finally{
+    btn.disabled=false; btn.textContent="Run";
+  }
+}
+
+// ---------- slider / animation ----------
+function setupSlider(){
+  const s=document.getElementById("slider");
+  s.max=RUN.steps.length-1; s.value=0; s.disabled=false;
+}
+function showStep(i){
+  if(!RUN) return;
+  const step=RUN.steps[i];
+  document.getElementById("slider").value=i;
+  drawTour(RUN.coordinates, step.current_tour);
+  drawTrajectory(i);
+  const nb=step.neighborhood, imp=step.improved?" • improved":"";
+  document.getElementById("stepinfo").textContent =
+    `iter ${step.iteration} · k=${step.k} (${NB_SHORT[nb]||nb}) · cost ${step.cost_after}${imp}`;
+}
+function togglePlay(){
+  const btn=document.getElementById("play");
+  if(timer){clearInterval(timer);timer=null;btn.textContent="▶ Play";return;}
+  if(!RUN) return;
+  btn.textContent="⏸ Pause";
+  const s=document.getElementById("slider");
+  timer=setInterval(()=>{
+    let v=+s.value; if(v>=RUN.steps.length-1){clearInterval(timer);timer=null;btn.textContent="▶ Play";return;}
+    showStep(v+1);
+  }, 120);
+}
+
+// ---------- drawing: tour ----------
+// Aspect-ratio preserving scales (#10): map data x and y with the SAME
+// units-per-pixel so the tour keeps its true geometric shape, then centre it.
+let _tourScales = null;
+
+function tourScales(coords){
+  const W=400,H=340,pad=18;
+  const xs=coords.map(c=>c[0]), ys=coords.map(c=>c[1]);
+  const xmin=d3.min(xs),xmax=d3.max(xs),ymin=d3.min(ys),ymax=d3.max(ys);
+  const dataW=(xmax-xmin)||1, dataH=(ymax-ymin)||1;
+  const s=Math.min((W-2*pad)/dataW,(H-2*pad)/dataH);      // uniform scale
+  const offX=(W-dataW*s)/2, offY=(H-dataH*s)/2;
+  const x=v=>offX+(v-xmin)*s;
+  const y=v=>H-(offY+(v-ymin)*s);                          // flip y for screen
+  return {x,y};
+}
+
+function tourPath(coords, tour, sc){
+  const pts=tour.map(idx=>[sc.x(coords[idx][0]),sc.y(coords[idx][1])]);
+  pts.push(pts[0]);
+  return d3.line()(pts);
+}
+
+function drawTour(coords, tour){
+  const svg=d3.select("#tour");
+  const sc=tourScales(coords);
+  _tourScales=sc;
+
+  // cities (drawn once, stable) — small gray points
+  const cs=svg.selectAll("circle.city").data(coords);
+  cs.enter().append("circle").attr("class","city")
+     .attr("r",2.3).attr("fill","#9aa3b2").attr("opacity",.85)
+    .merge(cs).attr("cx",d=>sc.x(d[0])).attr("cy",d=>sc.y(d[1]));
+  cs.exit().remove();
+
+  // tour path with smooth transition (#8), solid black, no glow
+  let path=svg.select("path.tour");
+  if(path.empty()){
+    path=svg.append("path").attr("class","tour")
+       .attr("fill","none").attr("stroke",BEST).attr("stroke-width",1.4).attr("opacity",.9);
+  }
+  if(tour && tour.length){
+    const d=tourPath(coords, tour, sc);
+    path.transition().duration(140).ease(d3.easeCubicOut).attr("d", d);
+  } else {
+    path.attr("d", null);
+  }
+}
+
+// ---------- trajectory legend (built once per run) ----------
+function buildTrajLegend(){
+  const leg=d3.select("#traj-legend"); leg.html("");
+  leg.append("span").html(`<span class="swatch" style="background:${BEST}"></span>best so far`);
+  leg.append("span").html(`<span class="swatch" style="background:${CURR}"></span>current (post-2-opt)`);
+  leg.append("span").html(`<span class="swatch" style="background:${OPTIMAL}"></span>optimal`);
+  [1,2,3,4,5].forEach(k=>{
+    leg.append("span").html(`<span class="swatch" style="background:${K_COLOR[k]}"></span>improved at k=${k}`);
+  });
+}
+
+// ---------- drawing: trajectory ----------
+// y-axis is GAP FROM OPTIMAL (%) when an optimum is known (#1), which keeps
+// both the large early drop and the small late refinements legible. Two
+// series (#2): the faint "current" cost (post-shake + 2-opt, the real
+// exploration) and the bold best-so-far staircase.
+function asGap(cost){
+  return RUN.optimal ? (cost-RUN.optimal)/RUN.optimal*100 : cost;
+}
+function drawTrajectory(currentIdx){
+  const svg=d3.select("#traj"); svg.selectAll("*").remove();
+  const W=400,H=340,m={t:14,r:14,b:48,l:62};
+  const steps=RUN.steps;
+  const useGap=!!RUN.optimal;
+  const val=useGap ? (s=>asGap(s.best_cost)) : (s=>s.best_cost);
+  const valCur=useGap ? (s=>asGap(s.cost_after)) : (s=>s.cost_after);
+
+  const x=d3.scaleLinear().domain([0,steps.length-1]).range([m.l,W-m.r]);
+  const allCur=steps.map(valCur), allBest=steps.map(val);
+  const lo=d3.min(allBest), hi=d3.max(allCur);
+  const y=d3.scaleLinear().domain([Math.max(0,lo-(hi-lo)*0.05), hi*1.02]).range([H-m.b,m.t]);
+
+  // optimal baseline (green)
+  const base=useGap?0:RUN.optimal;
+  if(base!=null){
+    svg.append("line").attr("x1",m.l).attr("x2",W-m.r)
+       .attr("y1",y(base)).attr("y2",y(base))
+       .attr("stroke",OPTIMAL).attr("stroke-dasharray","4 3").attr("stroke-width",1);
+  }
+
+  // current-cost line (gray) — the real exploration (#2)
+  svg.append("path")
+     .attr("d", d3.line().x((d,i)=>x(i)).y(d=>y(valCur(d)))(steps))
+     .attr("fill","none").attr("stroke",CURR).attr("stroke-width",1).attr("opacity",.7);
+
+  // best-so-far staircase (black), no glow
+  svg.append("path")
+     .attr("d", d3.line().x((d,i)=>x(i)).y(d=>y(val(d)))(steps))
+     .attr("fill","none").attr("stroke",BEST).attr("stroke-width",1.7);
+
+  // improvement markers coloured by k
+  svg.selectAll("circle.imp").data(steps.filter(s=>s.improved)).enter()
+     .append("circle").attr("class","imp")
+     .attr("cx",d=>x(steps.indexOf(d))).attr("cy",d=>y(val(d)))
+     .attr("r",3).attr("fill",d=>K_COLOR[d.k]||"#999");
+
+  // current step: vertical guide + marker
+  svg.append("line").attr("x1",x(currentIdx)).attr("x2",x(currentIdx))
+     .attr("y1",m.t).attr("y2",H-m.b)
+     .attr("stroke",INK).attr("stroke-width",0.6).attr("opacity",.25);
+  svg.append("circle").attr("cx",x(currentIdx)).attr("cy",y(val(steps[currentIdx])))
+     .attr("r",4.5).attr("fill","none").attr("stroke",INK).attr("stroke-width",1.5);
+
+  // axes
+  svg.append("g").attr("transform",`translate(0,${H-m.b})`).call(d3.axisBottom(x).ticks(5));
+  const yAxis=d3.axisLeft(y).ticks(5);
+  if(useGap) yAxis.tickFormat(d=>d.toFixed(1)+"%");
+  svg.append("g").attr("transform",`translate(${m.l},0)`).call(yAxis);
+
+  // axis labels
+  svg.append("text").attr("class","axis-label").attr("text-anchor","middle")
+     .attr("x",(m.l+W-m.r)/2).attr("y",H-8).text("iteration");
+  svg.append("text").attr("class","axis-label").attr("text-anchor","middle")
+     .attr("transform",`translate(14,${(m.t+H-m.b)/2}) rotate(-90)`)
+     .text(useGap ? "gap from optimal (%)" : "best tour cost");
+}
+
+// ---------- stat chart helpers ----------
+function axisLabels(svg,W,H,m,xl,yl){
+  svg.append("text").attr("class","axis-label").attr("text-anchor","middle")
+     .attr("x",(m.l+W-m.r)/2).attr("y",H-6).text(xl);
+  svg.append("text").attr("class","axis-label").attr("text-anchor","middle")
+     .attr("transform",`translate(13,${(m.t+H-m.b)/2}) rotate(-90)`).text(yl);
+}
+
+// per-neighborhood colored bars (each N its own color)
+function barChart(svgId, labels, values, colors, pct, xlab, ylab){
+  const svg=d3.select(svgId); svg.selectAll("*").remove();
+  const W=400,H=290,m={t:14,r:14,b:52,l:58};
+  const x=d3.scaleBand().domain(labels).range([m.l,W-m.r]).padding(.28);
+  const y=d3.scaleLinear().domain([0,d3.max(values)||1]).nice().range([H-m.b,m.t]);
+  svg.selectAll("rect").data(values).enter().append("rect")
+     .attr("x",(d,i)=>x(labels[i])).attr("y",d=>y(d))
+     .attr("width",x.bandwidth()).attr("height",d=>H-m.b-y(d))
+     .attr("fill",(d,i)=>Array.isArray(colors)?colors[i]:colors).attr("rx",2);
+  svg.selectAll("text.v").data(values).enter().append("text").attr("class","v")
+     .attr("x",(d,i)=>x(labels[i])+x.bandwidth()/2).attr("y",d=>y(d)-4)
+     .attr("text-anchor","middle").attr("font-size",10).attr("fill","#0a0a0a")
+     .text(d=>pct?d.toFixed(2)+"%":d);
+  svg.append("g").attr("transform",`translate(0,${H-m.b})`).call(d3.axisBottom(x));
+  svg.append("g").attr("transform",`translate(${m.l},0)`).call(d3.axisLeft(y).ticks(5));
+  axisLabels(svg,W,H,m,xlab,ylab);
+}
+
+function drawAllStats(){
+  const labels=NB_ORDER.map(n=>NB_SHORT[n]);
+  const kcolors=[1,2,3,4,5].map(k=>K_COLOR[k]);
+  const usage=NB_ORDER.map(n=>RUN.summary.usage[n]||0);
+  const contribCounts=NB_ORDER.map(n=>RUN.summary.contribution[n]||0);
+  const rate=NB_ORDER.map((n,i)=>usage[i]?+(contribCounts[i]/usage[i]*100).toFixed(2):0);
+  barChart("#usage",labels,usage,kcolors,false,"neighborhood (shake level)","times used");
+  barChart("#contrib",labels,rate,kcolors,true,"neighborhood (shake level)","improvement rate (%)");
+
+  const sd=[],lr=[];
+  NB_ORDER.forEach(n=>{
+    const rows=RUN.steps.filter(s=>s.neighborhood===n);
+    sd.push(rows.length?d3.mean(rows,r=>r.shake_delta):0);
+    lr.push(rows.length?d3.mean(rows,r=>r.ls_recovery):0);
+  });
+  groupedBars("#shake",labels,sd,lr,"shake Δ (disruption)","LS recovery",
+              "neighborhood (shake level)","mean cost change");
+
+  cumulativeImprovements("#improve");
+}
+
+function groupedBars(svgId,labels,a,b,la,lb,xlab,ylab){
+  const svg=d3.select(svgId); svg.selectAll("*").remove();
+  const W=400,H=290,m={t:24,r:14,b:52,l:60};
+  const x0=d3.scaleBand().domain(labels).range([m.l,W-m.r]).padding(.28);
+  const x1=d3.scaleBand().domain([0,1]).range([0,x0.bandwidth()]).padding(.12);
+  const y=d3.scaleLinear().domain([0,d3.max([...a,...b])||1]).nice().range([H-m.b,m.t]);
+  labels.forEach((lab,i)=>{
+    svg.append("rect").attr("x",x0(lab)+x1(0)).attr("y",y(a[i]))
+       .attr("width",x1.bandwidth()).attr("height",H-m.b-y(a[i])).attr("fill","#0a0a0a").attr("rx",2);
+    svg.append("rect").attr("x",x0(lab)+x1(1)).attr("y",y(b[i]))
+       .attr("width",x1.bandwidth()).attr("height",H-m.b-y(b[i])).attr("fill","#9aa3b2").attr("rx",2);
+  });
+  svg.append("g").attr("transform",`translate(0,${H-m.b})`).call(d3.axisBottom(x0));
+  svg.append("g").attr("transform",`translate(${m.l},0)`).call(d3.axisLeft(y).ticks(5));
+  axisLabels(svg,W,H,m,xlab,ylab);
+  const leg=svg.append("g").attr("transform",`translate(${m.l+4},6)`);
+  leg.append("rect").attr("width",10).attr("height",10).attr("fill","#0a0a0a").attr("rx",2);
+  leg.append("text").attr("x",14).attr("y",9).attr("font-size",10).attr("fill","#6b7280").text(la);
+  leg.append("rect").attr("x",90).attr("width",10).attr("height",10).attr("fill","#9aa3b2").attr("rx",2);
+  leg.append("text").attr("x",104).attr("y",9).attr("font-size",10).attr("fill","#6b7280").text(lb);
+}
+
+function cumulativeImprovements(svgId){
+  const svg=d3.select(svgId); svg.selectAll("*").remove();
+  const W=400,H=290,m={t:14,r:14,b:52,l:58};
+  const steps=RUN.steps; let c=0;
+  const cum=steps.map(s=>{if(s.improved)c++;return c;});
+  const x=d3.scaleLinear().domain([0,steps.length-1]).range([m.l,W-m.r]);
+  const y=d3.scaleLinear().domain([0,d3.max(cum)||1]).nice().range([H-m.b,m.t]);
+  svg.append("path").attr("d",d3.line().x((d,i)=>x(i)).y(d=>y(d))(cum))
+     .attr("fill","none").attr("stroke","#0a0a0a").attr("stroke-width",1.8);
+  svg.append("g").attr("transform",`translate(0,${H-m.b})`).call(d3.axisBottom(x).ticks(5));
+  svg.append("g").attr("transform",`translate(${m.l},0)`).call(d3.axisLeft(y).ticks(5));
+  axisLabels(svg,W,H,m,"iteration","cumulative improvements");
+}
+
+// ---------- final stats dropdown ----------
+function drawFinal(){
+  const s=RUN.summary;
+  const el=document.getElementById("finalcontent");
+  const stat=(v,l)=>`<div class="stat"><div class="v">${v}</div><div class="l">${l}</div></div>`;
+  let html=`<div class="statgrid">
+    ${stat(s.best_cost,"best cost")}
+    ${stat(s.optimal,"optimal")}
+    ${stat((s.gap!=null?s.gap.toFixed(3):"–")+"%","gap")}
+    ${stat(s.total_iters,"steps logged")}
+    ${stat(s.improvements,"improvements")}
+    ${stat(s.time+"s","time elapsed")}
+  </div>`;
+  html+=`<table class="nb"><thead><tr><th>Neighborhood</th><th>Used</th><th>Improvements</th><th>Rate</th></tr></thead><tbody>`;
+  NB_ORDER.forEach(n=>{
+    const u=s.usage[n]||0,c=s.contribution[n]||0,r=u?(c/u*100).toFixed(2):"0.00";
+    html+=`<tr><td>${NB_SHORT[n]} · ${n}</td><td>${u}</td><td>${c}</td><td>${r}%</td></tr>`;
+  });
+  html+=`</tbody></table>`;
+  el.innerHTML=html;
+  document.getElementById("finalbox").open=true;
+}
+
+init();
+</script>
+</body>
+</html>
