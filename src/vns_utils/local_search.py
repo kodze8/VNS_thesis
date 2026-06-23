@@ -1,10 +1,6 @@
 from vns_utils.helpers import tour_cost
 
 def local_search(tour, dist):
-    """
-    2-opt local search.
-    tries all possible edge swaps and keeps improving until no better swap exists.
-    """
     n = len(tour)
     best = tour[:]
     best_cost = tour_cost(best, dist)

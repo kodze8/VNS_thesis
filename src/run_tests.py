@@ -1,13 +1,4 @@
-"""
-run_test.py
------------
-Phase 2: held-out evaluation.
-Runs the SINGLE chosen configuration on the TEST instances only, once.
-Edit BEST_CONFIG to the configuration selected from the tuning results
-BEFORE running this. Do not run multiple configs here.
-"""
-
-from run_tuning import run_experiments, SEEDS
+from run_tuning import run_experiments, SEEDS, TIME_LIMITS, MAX_ITERATIONS
 
 TEST_INSTANCES = {
     "berlin52": 7542,
@@ -16,14 +7,22 @@ TEST_INSTANCES = {
     "lin318":   41345,
 }
 
-# add the test instances' limits to TIME_LIMITS / MAX_ITERATIONS in run_tuning.py,
-# or override here by importing and updating those dicts before running.
-
-# The configuration chosen on the tuning set. EDIT THIS after analysing tuning.
-BEST_CONFIG = {"k_max": 5, "max_no_improve": 100, "init_method": "nearest_neighbor"}
-
+# the configuration chosen on the tuning set
+BEST_CONFIG = {"k_max": 5, "max_no_improve": 200, "init_method": "nearest_neighbor"}
 
 if __name__ == "__main__":
+    # fail early with a clear message if any test instance lacks limits
+    missing = [name for name in TEST_INSTANCES
+               if name not in TIME_LIMITS or name not in MAX_ITERATIONS]
+    if missing:
+        raise KeyError(
+            f"Missing TIME_LIMITS/MAX_ITERATIONS for: {missing}. "
+            f"Add them to run_tuning.py before running the test phase."
+        )
+
+    print(f"Running held-out test with config: {BEST_CONFIG}")
+    print(f"Test instances: {list(TEST_INSTANCES.keys())}\n")
+
     run_experiments(
         instances=TEST_INSTANCES,
         configs=[BEST_CONFIG],          # exactly one config

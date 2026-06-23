@@ -10,7 +10,7 @@ from vns import vns
 
 
 def _clean(obj):
-    """Recursively convert numpy types to native Python types for JSON."""
+    #recursively convert numpy types to native json
     if isinstance(obj, dict):
         return {k: _clean(v) for k, v in obj.items()}
     if isinstance(obj, (list, tuple)):
@@ -32,11 +32,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(HERE, "..", "data")
 STATIC_DIR = os.path.join(HERE, "static")
 
-# ──────────────────────────────────────────────
-#  Allowed parameter grid (the experimental space)
-#  The frontend builds its dropdowns from this, and every /run request is
-#  validated against it. Nothing outside this grid can be executed.
-# ──────────────────────────────────────────────
+
+
 OPTIMALS = {
     "eil51": 426, "eil76": 538, "rat99": 1211, "eil101": 629,
     "ch150": 6528, "kroA100": 21282, "kroA150": 26524,
@@ -230,4 +227,4 @@ def run():
 
 
 if __name__ == "__main__":
-    app.run(debug=False, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
+    app.run(debug=False, host='0.0.0.0', port=int(os.environ.get('PORT', 5001)))

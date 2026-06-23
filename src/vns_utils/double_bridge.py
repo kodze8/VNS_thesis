@@ -3,13 +3,6 @@ from vns_utils.helpers import tour_cost
 
 
 def _double_bridge_once(tour):
-    """
-    One double-bridge (4-opt) move: cut at 3 interior points into
-    four segments A, B, C, D and reconnect as A + C + B + D.
-    This is the canonical non-sequential 4-opt move (Martin, Otto &
-    Felten, 1991); it changes exactly four edges and cannot be undone
-    by a single 2-opt or 3-opt move.
-    """
     n = len(tour)
     # three distinct interior cut points -> four segments
     a, b, c = sorted(random.sample(range(1, n), 3))

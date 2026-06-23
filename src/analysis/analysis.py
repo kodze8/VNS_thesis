@@ -1,20 +1,3 @@
-"""
-analysis.py
------------
-Analysis pipeline for the VNS thesis.
-
-Two phases are kept separate:
-  - TUNING analysis : compares the six configurations on the tuning instances,
-                      produces the results chapter (4.x) and selects the best
-                      configuration from the data.
-  - TEST analysis   : evaluates the single chosen configuration on the held-out
-                      test instances (validation chapter).
-
-The explainability sections (5.x) and the new insight sections run on the
-reference / chosen configuration.
-
-All plots are saved WITHOUT titles (titles live in the LaTeX captions).
-"""
 
 import os
 import ast
@@ -36,7 +19,6 @@ PLOTS_DIR    = "plots"
 TUNING_SUMMARY = "../results/tuning_summary.csv"
 TEST_SUMMARY   = "../results/test_summary.csv"
 
-# fill verified TSPLIB optima
 KNOWN_OPTIMALS = {
     # tuning
     "eil51":   426,
@@ -60,11 +42,10 @@ TEST_INSTANCES   = ["berlin52", "kroB100", "kroA200", "lin318"]
 TUNING_ORDER = ["eil51", "eil76", "rat99", "eil101", "kroA100", "ch150", "kroA150"]
 TEST_ORDER   = ["berlin52", "kroB100", "kroA200", "lin318"]
 
-# corrected neighborhood names (N4 = double bridge, N5 = double double bridge)
+
 NEIGHBORHOOD_ORDER = ["or_opt_1", "or_opt_2", "or_opt_3",
                       "double_bridge", "double_double_bridge"]
 
-# nicer labels for plots
 NB_LABELS = {
     "or_opt_1": "N1\nOr-opt 1",
     "or_opt_2": "N2\nOr-opt 2",
@@ -73,9 +54,7 @@ NB_LABELS = {
     "double_double_bridge": "N5\nDouble db.",
 }
 
-# reference configuration used for the descriptive / explainability sections.
-# This is the baseline (C3). The *chosen* config for the test set is selected
-# from the tuning data in select_best_config().
+
 REFERENCE_CONFIG = {"k_max": 5, "max_no_improve": 100, "init_method": "nearest_neighbor"}
 
 COL_RED  = "#BC0032"

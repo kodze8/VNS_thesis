@@ -89,6 +89,30 @@
   svg .tick line{stroke:#eceef1;}
   svg .tick text{fill:#6b7280;font-size:10px;}
   .axis-label{fill:#6b7280;font-size:11px;font-weight:600;}
+
+  /* intro / explainer panel */
+  .intro{background:var(--surface);border:1px solid var(--line);border-radius:4px;
+         padding:20px 22px;margin-bottom:18px;}
+  .intro h2{margin:0 0 8px;font-size:13px;font-weight:700;text-transform:uppercase;
+            letter-spacing:.1em;color:var(--ink);}
+  .intro p{margin:0 0 10px;font-size:13px;line-height:1.6;color:var(--muted);max-width:760px;}
+  .intro p:last-child{margin-bottom:0;}
+  .intro b{color:var(--ink);font-weight:600;}
+  .nbkey{display:flex;flex-wrap:wrap;gap:8px 18px;margin:14px 0 4px;}
+  .nbkey .item{display:flex;align-items:baseline;gap:7px;font-size:12px;color:var(--muted);}
+  .nbkey .item .sw{width:18px;height:3px;border-radius:2px;display:inline-block;
+                   position:relative;top:-3px;flex:none;}
+  .nbkey .item b{color:var(--ink);font-weight:600;}
+
+  /* per-chart caption lines */
+  .caption{font-size:11px;line-height:1.5;color:var(--faint);margin-top:9px;}
+  .caption b{color:var(--muted);font-weight:600;}
+
+  /* changed-edge toggle under the tour */
+  .difftoggle{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--muted);
+              margin-top:10px;cursor:pointer;user-select:none;}
+  .difftoggle input{accent-color:var(--ink);cursor:pointer;}
+  .diff-removed{stroke:#b8bdc6;stroke-width:1.2;stroke-dasharray:3 3;opacity:.85;fill:none;}
 </style>
 </head>
 <body>
@@ -98,6 +122,26 @@
 </header>
 
 <div class="wrap">
+
+  <!-- INTRO / EXPLAINER -->
+  <div class="intro">
+    <h2>What this shows</h2>
+    <p>The <b>Travelling Salesman Problem</b> asks for the shortest tour that visits every
+       city once and returns to the start. <b>Variable Neighbourhood Search (VNS)</b> looks
+       for a good tour by repeating two steps: it <b>shakes</b> the current tour with a random
+       move to escape where it is stuck, then runs a <b>2-opt local search</b> to tidy the
+       result back up. If the new tour is shorter it is kept; if not, VNS tries a
+       <b>stronger shake</b> next time. The shakes are ordered from gentlest to strongest:</p>
+    <div class="nbkey">
+      <div class="item"><span class="sw" style="background:#1f6feb"></span><b>N1</b> Or-opt 1 — move 1 city (small)</div>
+      <div class="item"><span class="sw" style="background:#12a594"></span><b>N2</b> Or-opt 2 — move 2 cities</div>
+      <div class="item"><span class="sw" style="background:#7c4dff"></span><b>N3</b> Or-opt 3 — move 3 cities</div>
+      <div class="item"><span class="sw" style="background:#e8590c"></span><b>N4</b> double bridge — 4 edges (large)</div>
+      <div class="item"><span class="sw" style="background:#d6336c"></span><b>N5</b> double double bridge — up to 8 edges</div>
+    </div>
+    <p>Pick an instance and configuration, press <b>Run</b> to search live, then use the slider
+       to step through the search. Each panel below explains what it is showing.</p>
+  </div>
 
   <!-- CONTROLS -->
   <div class="controls" id="controls">
@@ -121,26 +165,45 @@
         <input type="range" id="slider" min="0" max="0" value="0" disabled/>
         <div class="stepinfo" id="stepinfo">no run yet</div>
       </div>
+      <label class="difftoggle"><input type="checkbox" id="diffchk" checked/>highlight edges changed by this step</label>
+      <div class="caption">The tour the search is trying at this step. <b>Coloured edges</b> were
+        added by this step's shake, coloured by the level (N1–N5) that produced them;
+        <b>dashed grey edges</b> were removed. Grey dots are the cities.</div>
     </div>
     <div class="card">
       <h3>Cost trajectory</h3>
       <svg id="traj" viewBox="0 0 400 340"></svg>
       <div class="legend" id="traj-legend"></div>
+      <div class="caption">The <b>best tour cost so far</b> (black) and the <b>current
+        candidate cost</b> (grey) at each iteration. Dots mark accepted improvements,
+        coloured by the level that produced them. The green dashed line is the known optimum.</div>
     </div>
   </div>
 
   <!-- BAND: neighbourhood statistics -->
   <div class="band-title">Neighborhood statistics</div>
   <div class="grid2">
-    <div class="card"><h3>Times used per neighborhood</h3><svg id="usage" viewBox="0 0 400 290"></svg></div>
-    <div class="card"><h3>Contribution rate per neighborhood (%)</h3><svg id="contrib" viewBox="0 0 400 290"></svg></div>
+    <div class="card"><h3>Times used per neighborhood</h3><svg id="usage" viewBox="0 0 400 290"></svg>
+      <div class="caption">How often each shake level was applied over the whole run.
+        Usage is fairly even because the search keeps cycling back to the gentle shakes.</div></div>
+    <div class="card"><h3>Contribution rate per neighborhood (%)</h3><svg id="contrib" viewBox="0 0 400 290"></svg>
+      <div class="caption">The share of each level's uses that led to an accepted improvement.
+        The gentle shakes (N1) tend to pay off most often per use; the strongest (N5) rarely does,
+        but it is the only one that can escape the hardest local optima.</div></div>
   </div>
 
   <!-- BAND: shaking dynamics -->
   <div class="band-title">Shaking dynamics</div>
   <div class="grid2">
-    <div class="card"><h3>Mean shake delta vs LS recovery</h3><svg id="shake" viewBox="0 0 400 290"></svg></div>
-    <div class="card"><h3>Improvements over iterations</h3><svg id="improve" viewBox="0 0 400 290"></svg></div>
+    <div class="card"><h3>Mean shake delta vs LS recovery</h3><svg id="shake" viewBox="0 0 400 290"></svg>
+      <div class="caption">For each level, the average cost a shake <b>adds</b> (disruption, black) next
+        to how much 2-opt <b>removes</b> again (recovery, grey). The two bars stay close at every
+        level — 2-opt undoes most of any shake, which is what lets the search wander without
+        drifting far from a good tour.</div></div>
+    <div class="card"><h3>Improvements over iterations</h3><svg id="improve" viewBox="0 0 400 290"></svg>
+      <div class="caption">The running total of accepted improvements. It rises steeply early on and
+        then flattens, showing the search finds its best tour early and spends the rest of the run
+        without improving.</div></div>
   </div>
 
   <!-- FINAL STATS -->
@@ -162,6 +225,7 @@ const RED=BEST, BLUE=CURR;
 
 let RUN = null;     // last run payload
 let timer = null;
+let SHOW_DIFF = true;   // highlight edges changed by the current step
 
 // ---------- setup dropdowns ----------
 async function init(){
@@ -177,6 +241,10 @@ async function init(){
   document.getElementById("run").addEventListener("click", doRun);
   document.getElementById("slider").addEventListener("input", e=>showStep(+e.target.value));
   document.getElementById("play").addEventListener("click", togglePlay);
+  document.getElementById("diffchk").addEventListener("change", e=>{
+    SHOW_DIFF = e.target.checked;
+    if(RUN) showStep(+document.getElementById("slider").value);
+  });
   // draw the empty instance map
   loadInstanceMap(opt.instances[0]);
   document.getElementById("sel-instance").addEventListener("change", e=>loadInstanceMap(e.target.value));
@@ -219,6 +287,7 @@ async function doRun(){
     const data=await res.json();
     if(data.error){document.getElementById("warn").textContent="Error: "+data.error;return;}
     RUN=data;
+    computeBaseTours();
     buildTrajLegend();
     setupSlider(); showStep(0);
     drawAllStats();
@@ -240,7 +309,8 @@ function showStep(i){
   if(!RUN) return;
   const step=RUN.steps[i];
   document.getElementById("slider").value=i;
-  drawTour(RUN.coordinates, step.current_tour);
+  drawTour(RUN.coordinates, step.current_tour,
+           {baseTour: RUN._baseTours ? RUN._baseTours[i] : null, k: step.k, showDiff: SHOW_DIFF});
   drawTrajectory(i);
   const nb=step.neighborhood, imp=step.improved?" • improved":"";
   document.getElementById("stepinfo").textContent =
@@ -281,7 +351,38 @@ function tourPath(coords, tour, sc){
   return d3.line()(pts);
 }
 
-function drawTour(coords, tour){
+// ---------- changed-edge helpers ----------
+// An edge is an unordered pair of cities. We compare the tour shown at a step
+// against the accepted tour it was shaken from (its "base"), so the highlight
+// shows what this step's shake + 2-opt actually did to the running solution.
+function edgeKey(a,b){ return a<b ? a+"_"+b : b+"_"+a; }
+function tourEdgeKeySet(tour){
+  const s=new Set();
+  for(let i=0;i<tour.length;i++) s.add(edgeKey(tour[i],tour[(i+1)%tour.length]));
+  return s;
+}
+function tourEdgePairs(tour){
+  const e=[];
+  for(let i=0;i<tour.length;i++) e.push([tour[i],tour[(i+1)%tour.length]]);
+  return e;
+}
+// For each step, the tour it was shaken from = the candidate of the most recent
+// accepted (improving) step before it. Steps before the first acceptance have no
+// known base (the initial 2-opt tour is not logged), so they get null.
+function computeBaseTours(){
+  const steps=RUN.steps;
+  RUN._baseTours=new Array(steps.length).fill(null);
+  let base=null;
+  for(let i=0;i<steps.length;i++){
+    RUN._baseTours[i]=base;
+    if(steps[i].improved && steps[i].current_tour && steps[i].current_tour.length){
+      base=steps[i].current_tour;
+    }
+  }
+}
+
+function drawTour(coords, tour, opts){
+  opts = opts || {};
   const svg=d3.select("#tour");
   const sc=tourScales(coords);
   _tourScales=sc;
@@ -300,11 +401,41 @@ function drawTour(coords, tour){
        .attr("fill","none").attr("stroke",BEST).attr("stroke-width",1.4).attr("opacity",.9);
   }
   if(tour && tour.length){
-    const d=tourPath(coords, tour, sc);
-    path.transition().duration(140).ease(d3.easeCubicOut).attr("d", d);
+    path.transition().duration(140).ease(d3.easeCubicOut).attr("d", tourPath(coords, tour, sc));
   } else {
     path.attr("d", null);
   }
+
+  // changed-edge overlay, kept above the main path
+  let g=svg.select("g.diff");
+  if(g.empty()) g=svg.append("g").attr("class","diff");
+  g.selectAll("*").remove();
+  g.raise();
+
+  const base=opts.baseTour;
+  if(!opts.showDiff || !tour || !tour.length || !base || !base.length) return;
+
+  const baseSet=tourEdgeKeySet(base), curSet=tourEdgeKeySet(tour);
+  const col=K_COLOR[opts.k]||INK;
+  const seg=(a,b)=>[sc.x(coords[a][0]),sc.y(coords[a][1]),sc.x(coords[b][0]),sc.y(coords[b][1])];
+
+  // removed edges: in the base tour but not the candidate -> dashed grey ghosts
+  tourEdgePairs(base).forEach(([a,b])=>{
+    if(!curSet.has(edgeKey(a,b))){
+      const s=seg(a,b);
+      g.append("line").attr("class","diff-removed")
+       .attr("x1",s[0]).attr("y1",s[1]).attr("x2",s[2]).attr("y2",s[3]);
+    }
+  });
+  // added edges: in the candidate but not the base -> coloured by the level k
+  tourEdgePairs(tour).forEach(([a,b])=>{
+    if(!baseSet.has(edgeKey(a,b))){
+      const s=seg(a,b);
+      g.append("line").attr("fill","none")
+       .attr("x1",s[0]).attr("y1",s[1]).attr("x2",s[2]).attr("y2",s[3])
+       .attr("stroke",col).attr("stroke-width",2.6).attr("stroke-linecap","round");
+    }
+  });
 }
 
 // ---------- trajectory legend (built once per run) ----------

@@ -3,11 +3,6 @@ from vns_utils.helpers import tour_cost
 
 
 def small_shake(tour, dist, chain_length=1):
-    """
-    Or-opt shaking:
-    randomly pick a chain of cities and insert it
-    at a random different position in the tour.
-    """
     n = len(tour)
     new_tour = tour[:]
 
