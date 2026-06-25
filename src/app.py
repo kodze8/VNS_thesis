@@ -109,7 +109,6 @@ def options():
 
 @app.route("/api/instance/<name>")
 def instance_coords(name):
-    """City coordinates for plotting (before any run)."""
     if name not in OPTIMALS:
         return jsonify({"error": "unknown instance"}), 400
     inst = get_instance(name)
@@ -122,7 +121,6 @@ def instance_coords(name):
 
 
 def _validate(payload):
-    """Return (params, None) if valid, else (None, error_message)."""
     try:
         instance = str(payload["instance"])
         k_max = int(payload["k_max"])
@@ -153,7 +151,6 @@ def _validate(payload):
 
 
 def _parse_tour(tour_str):
-    """Logger stores tours as strings; turn back into a list of ints."""
     try:
         return ast.literal_eval(tour_str)
     except (ValueError, SyntaxError):
@@ -183,7 +180,7 @@ def run():
         init_method=params["init_method"],
     )
 
-    # serialise the per-step log; parse tour strings back to lists
+    # serialise the per-step log parse tour strings back to lists
     steps = []
     for e in logger.entries:
         d = asdict(e)

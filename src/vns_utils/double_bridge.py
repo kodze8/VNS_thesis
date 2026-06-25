@@ -18,9 +18,7 @@ def double_bridge(tour, dist):
 
 def double_double_bridge(tour, dist):
     """
-    N5: two successive double-bridge moves. Each move changes four
-    edges, so applying two consecutively perturbs the tour more than a
-    single double bridge, giving a strictly stronger shake than N4.
+    N5: two successive double-bridge moves.
     """
     new_tour = _double_bridge_once(tour)
     new_tour = _double_bridge_once(new_tour)

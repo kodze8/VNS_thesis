@@ -1,4 +1,3 @@
-
 import os
 import ast
 import numpy as np
@@ -15,7 +14,7 @@ from collections import defaultdict
 RESULTS_DIR  = "../results"
 PLOTS_DIR    = "plots"
 
-# the two summary files produced by run_tuning.py and run_test.py
+
 TUNING_SUMMARY = "../results/tuning_summary.csv"
 TEST_SUMMARY   = "../results/test_summary.csv"
 
@@ -70,7 +69,6 @@ os.makedirs(PLOTS_DIR, exist_ok=True)
 # ─────────────────────────────────────────────
 
 def load_all_runs(instance_filter=None) -> pd.DataFrame:
-    """Load every per-run log CSV, optionally restricted to a set of instances."""
     dfs = []
     skip = {"tuning_summary.csv", "test_summary.csv", "experiment_summary.csv"}
     for file in os.listdir(RESULTS_DIR):
@@ -104,7 +102,6 @@ def filter_config(df, k_max, max_no_improve, init_method):
 
 
 def reference(df):
-    """Rows for the reference configuration (C3)."""
     return filter_config(df, **REFERENCE_CONFIG)
 
 
@@ -113,11 +110,6 @@ def reference(df):
 # ─────────────────────────────────────────────
 
 def select_best_config(tuning_summary: pd.DataFrame):
-    """
-    Rank the six configurations by mean gap across the tuning instances and
-    return the best one. This replaces the old hardcoded C3 assumption: the
-    configuration carried to the test set is chosen from the data.
-    """
     print("\n" + "=" * 55)
     print("  Configuration selection on tuning set")
     print("=" * 55)
@@ -438,7 +430,6 @@ def section_5_1(runs: pd.DataFrame):
         opt = KNOWN_OPTIMALS.get(instance)
         if opt:
             ax.axhline(opt, color=COL_BLUE, linestyle="--", linewidth=1.2, label="Optimal")
-        # instance name kept as small in-axes label (sub-plot identifier, not a title)
         ax.set_title(instance, fontsize=9)
         ax.set_xlabel("Iteration")
         ax.set_ylabel("Best Cost")
@@ -491,7 +482,7 @@ def section_5_2(runs: pd.DataFrame):
 
 
 # ─────────────────────────────────────────────
-#  5.3 — Shaking Necessity (+ recovery ratio per k)  [EXTENDED]
+#  5.3 — Shaking Necessity
 # ─────────────────────────────────────────────
 
 def section_5_3(runs: pd.DataFrame):
@@ -546,7 +537,26 @@ def section_5_3(runs: pd.DataFrame):
 #  5.4 — Edge Frequency
 # ─────────────────────────────────────────────
 
-def section_5_4(runs: pd.DataFrame, instance_name="eil101"):
+
+def _load_tsp_coords(path):
+    coords, reading = {}, False
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            if line == "NODE_COORD_SECTION":
+                reading = True
+                continue
+            if not reading or line in ("EOF", ""):
+                continue
+            parts = line.split()
+            if len(parts) < 3:
+                continue
+            idx, x, y = parts[:3]
+            coords[int(idx)] = (float(x), float(y))
+    return coords
+
+
+def section_5_4(runs: pd.DataFrame, instance_name="eil101", tsp_path=None):
     print("\n" + "=" * 55)
     print(f"  5.4 Edge Frequency Analysis — {instance_name}")
     print("=" * 55)
@@ -557,7 +567,6 @@ def section_5_4(runs: pd.DataFrame, instance_name="eil101"):
         return
 
     best_tours = sub.groupby("seed")["best_tour"].last()
-    n = None
     edge_counts = defaultdict(int)
     total = 0
     for tour_str in best_tours:
@@ -565,8 +574,6 @@ def section_5_4(runs: pd.DataFrame, instance_name="eil101"):
             tour = ast.literal_eval(tour_str)
         except Exception:
             continue
-        if n is None:
-            n = len(tour)
         total += 1
         for i in range(len(tour)):
             a, b = tour[i], tour[(i + 1) % len(tour)]
@@ -575,16 +582,49 @@ def section_5_4(runs: pd.DataFrame, instance_name="eil101"):
         print("  Could not parse tours. Skipping.")
         return
 
-    freq = np.zeros((n, n))
-    for (a, b), c in edge_counts.items():
-        freq[a][b] = freq[b][a] = c / total
-    print(f"  {total} tours | {n} cities")
+    nodes = sorted({v for e in edge_counts for v in e})
+    print(f"  {total} tours | {len(nodes)} cities")
     print(f"  Edges in ALL runs     : {sum(1 for c in edge_counts.values() if c == total)}")
-    print(f"  Edges in >=80% of runs: {sum(1 for c in edge_counts.values() if c/total >= 0.8)}")
+    print(f"  Edges in >=80% of runs: {sum(1 for c in edge_counts.values() if c / total >= 0.8)}")
+
+    # coordinates come from the .tsp file — this script has none otherwise
+    if tsp_path is None:
+        tsp_path = f"../../data/{instance_name}.tsp"
+    try:
+        coords = _load_tsp_coords(tsp_path)
+    except FileNotFoundError:
+        print(f"  Coordinates not found at {tsp_path} — pass tsp_path=... Skipping.")
+        return
+
+    shift = min(nodes) - min(coords)
+    if shift != 0:
+        coords = {k + shift: v for k, v in coords.items()}
 
     fig, ax = plt.subplots(figsize=(10, 8))
-    sns.heatmap(freq, ax=ax, cmap="Reds", xticklabels=False, yticklabels=False,
-                cbar_kws={"label": "Edge Frequency (fraction of runs)"})
+    cmap = plt.cm.Reds
+
+
+    for (a, b), c in sorted(edge_counts.items(), key=lambda kv: kv[1]):
+        f = c / total
+        xa, ya = coords[a]
+        xb, yb = coords[b]
+        ax.plot([xa, xb], [ya, yb],
+                color=cmap(f),
+                linewidth=0.5 + 3.0 * f,
+                alpha=0.25 + 0.75 * f,
+                solid_capstyle="round",
+                zorder=1 + f)
+
+    ax.scatter([coords[v][0] for v in nodes],
+               [coords[v][1] for v in nodes],
+               s=12, c="black", zorder=3)
+
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=plt.Normalize(0, 1))
+    sm.set_array([])
+    fig.colorbar(sm, ax=ax, label="Edge frequency (fraction of runs)")
+
+    ax.set_aspect("equal")
+    ax.set_xticks([]); ax.set_yticks([])
     plt.tight_layout()
     plt.savefig(f"{PLOTS_DIR}/5_4_edge_frequency_{instance_name}.png", dpi=150)
     plt.close()
@@ -637,18 +677,10 @@ def section_5_5(runs: pd.DataFrame, instance_name="eil51", seed=42):
 
 
 # ─────────────────────────────────────────────
-#  5.6 — Escalation behaviour  [NEW INSIGHT]
+#  5.6 — Escalation behaviour
 # ─────────────────────────────────────────────
 
 def section_5_6(runs: pd.DataFrame):
-    """
-    How the search uses the hierarchy:
-      (a) how often each k is reached (used) and how often it produces an
-          improvement, and
-      (b) whether the k that produces improvements rises over the course of a
-          run (evidence that the escalation mechanism is genuinely used).
-    Uses only logged fields (k, improved, iteration).
-    """
     print("\n" + "=" * 55)
     print("  5.6 Escalation Behaviour")
     print("=" * 55)
@@ -669,7 +701,6 @@ def section_5_6(runs: pd.DataFrame):
     print("\nTable 5.6a — How often each k is reached and how often it improves:")
     print(esc.to_string())
 
-    # (b) winning-k over the run, by quartile of iteration (per instance, pooled)
     print("\nTable 5.6b — Mean k of IMPROVING steps by run phase (per instance):")
     phase_rows = []
     for instance, g in imp.groupby("instance_name"):
@@ -689,7 +720,6 @@ def section_5_6(runs: pd.DataFrame):
     phase_df = phase_df.reindex([i for i in TUNING_ORDER if i in phase_df.index])
     print(phase_df.to_string())
 
-    # plot: left = improvements per k; right = mean winning-k by phase, pooled
     fig, axes = plt.subplots(1, 2, figsize=(13, 5))
     labels = [NB_LABELS.get(NEIGHBORHOOD_ORDER[k-1], str(k)) for k in esc.index]
     axes[0].bar(labels, esc["improvements"], color=COL_RED, alpha=0.85, zorder=3)
@@ -718,12 +748,6 @@ def section_5_6(runs: pd.DataFrame):
 # ─────────────────────────────────────────────
 
 def section_5_7(runs: pd.DataFrame):
-    """
-    For each instance, the time at which improvements occur. On large,
-    time-limited instances improvements should keep arriving up to the limit
-    (search still progressing), whereas small instances stop improving early.
-    Uses logged time_elapsed and improved.
-    """
     print("\n" + "=" * 55)
     print("  5.7 Improvement Timing")
     print("=" * 55)
